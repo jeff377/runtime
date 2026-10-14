@@ -1268,7 +1268,12 @@ void ReadyToRunInfo::RegisterResumptionStub(PCODE stubEntryPoint)
 
     // Use the entry point hashtable to check if another thread already registered a MethodDesc
     if (m_pCompositeInfo->GetMethodDescForEntryPointInNativeImage(stubEntryPoint) != NULL)
+    {
+#ifdef HAVE_GCCOVER
+        MethodDesc::SetupGcCoverageForPrecompiledCode(stubEntryPoint);
+#endif // HAVE_GCCOVER
         return;
+    }
 
     MethodDesc* pStubMD = pStubCache->CreateR2RBackedILStub(
         pLoaderAllocator,
@@ -1292,6 +1297,9 @@ void ReadyToRunInfo::RegisterResumptionStub(PCODE stubEntryPoint)
     {
         amTracker.SuppressRelease();
     }
+#ifdef HAVE_GCCOVER
+    MethodDesc::SetupGcCoverageForPrecompiledCode(stubEntryPoint);
+#endif // HAVE_GCCOVER
 }
 
 PCODE ReadyToRunInfo::GetEntryPoint(MethodDesc * pMD, PrepareCodeConfig* pConfig, BOOL fFixups)
@@ -1435,6 +1443,11 @@ PCODE ReadyToRunInfo::GetEntryPoint(MethodDesc * pMD, PrepareCodeConfig* pConfig
 #error "ReadyToRun and PortableEntryPoints are not currently compatible on non-WASM targets, as the R2R image layout would need to be changed to support this scenario."
 #endif
 #endif
+
+#ifdef HAVE_GCCOVER
+    // Instrument before any caller can publish or execute the entry point.
+    MethodDesc::SetupGcCoverageForPrecompiledCode(pEntryPoint);
+#endif // HAVE_GCCOVER
 
 #ifdef PROFILING_SUPPORTED
         {
